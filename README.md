@@ -21,7 +21,8 @@ Coming soon....
 
 ## 📁 Project Structure
     FEAST/
-    └── pythonfunctions/
+    └── Functions/
+        │
         ├── Elements/
         │   ├── Beam.py
         │   ├── Shaft.py
