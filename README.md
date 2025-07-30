@@ -16,18 +16,56 @@ Install the required Python packages, listed in requirements.txt, with:
     pip install -r requirements.txt
 
 # Getting started
-This package is intended to be run through a Python IDE (PyCharm, VSCode, Spyder, etc.). 
+Coming soon....
 
-    python feast/main.py
+
+## 📁 Project Structure
+    FEAST/
+    └── pythonfunctions/
+        ├── Elements/
+        │   ├── Beam.py
+        │   ├── Shaft.py
+        │   └── Disk.py
+        │   # Add more element types as needed
+        │
+        ├── Solvers/
+        │   ├── StaticSolver.py
+        │   ├── DynamicSolver.py
+        │   └── TimeIntegration.py
+        │
+        ├── StressDescription/
+        │   ├── StressTensor.py
+        │   ├── VonMises.py
+        │   └── PrincipalStress.py
+        │
+        ├── StrainDescription/
+        │   ├── StrainTensor.py
+        │   ├── SmallStrain.py
+        │   └── LargeStrain.py
+        │
+        ├── Explicit/
+        │   ├── TimeStepper.py
+        │   ├── CentralDifference.py
+        │   └── StabilityCheck.py
+        │
+        ├── Implicit/
+        │   ├── NewmarkBeta.py
+        │   ├── BackwardEuler.py
+        │   └── SolverWrapper.py
+        │
+        └── IterationMethods/
+            ├── NewtonRaphson.py
+            ├── EulerMethod.py
+            └── ConvergenceCriteria.py
 
 # Basic workflow
-
+Coming soon....
 
 # Visualizations
-
+Coming soon....
 
 # Output Files
-
+Coming soon....
 
 # Documentation
 For more details, visit the [Wiki](https://github.com/MrJSimon/feast/wiki).
