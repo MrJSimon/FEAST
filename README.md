@@ -1,7 +1,8 @@
-# FEAST
-**feast** is a simulation framework focused on the modeling and analysis of spinning systems using finite element methods. Designed for research, development, and exploration in rotor dynamics and turbomachinery, FEAST aims to be modular, extensible, and easy to integrate with modern numerical workflows.
-
-![FEAST](documentation/images/feast_logo.png)
+<p align="left">
+  <img src="documentation/images/feast_logo_modified.png" alt="FEAST Logo" width="60" style="vertical-align:middle; margin-right:12px"/>
+  <strong style="font-size:128px;">FEAST</strong>
+</p>
+is a simulation framework focused on the modeling and analysis of spinning systems using finite element methods. Designed for research, development, and exploration in rotor dynamics and turbomachinery, FEAST aims to be modular, extensible, and easy to integrate with modern numerical workflows.
 
 # Installation
 Install **feast** by cloning the repository onto your local machine using the following command
