@@ -11,43 +11,22 @@
 import numpy as np
 
 
-def isoparametric_shapeQ4(x, y, xi, et):
+def isoparametric_3D_shapeQ8(x, y, z, xi, et):
     """
-   Computes the strain-displacement matrix B for a 4-node
-   isoparametric quadrilateral (Q4) element at a given Gauss point.
-
-   Node numbering (counter-clockwise):
-
-         N4          N3
-          o----------o
-          |          |
-          |          |
-          |          |
-          |          |
-          o----------o
-         N1          N2
-
-   Parameters
-   ----------
-   x, y : array-like, shape (4,)
-       Coordinates of the element nodes.
-   xi, et : float
-       Natural coordinates (ξ, η) of the Gauss integration point.
-
-   Returns
-   -------
-   B : ndarray, shape (3, 8)
-       Strain-displacement matrix
-   """
+   
+    """
     
     # ------------------------------------------------------------------------
     # Step 1: Mapping matrix (L)
     # ------------------------------------------------------------------------
     # Maps nodal displacement derivatives into strain components: εx, εy, γxy
     L = np.array([
-        [1.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 1.0],
-        [0.0, 1.0, 1.0, 0.0]
+        [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+        [0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0]
+        [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
     ])
 
     # ------------------------------------------------------------------------
@@ -62,23 +41,50 @@ def isoparametric_shapeQ4(x, y, xi, et):
     # ------------------------------------------------------------------------
     # Step 3: Construct nodal coordinate matrix
     # ------------------------------------------------------------------------
-    # xe is 4x2, each row = [x_i, y_i] of a node
     xe = np.array([
-        [x[0], y[0]],
-        [x[1], y[1]],
-        [x[2], y[2]],
-        [x[3], y[3]]
+        [x[0], y[0], z[0]],
+        [x[1], y[1], z[1]],
+        [x[2], y[2], z[2]],
+        [x[3], y[3], z[3]],
+        [x[4], y[4], z[4]],
+        [x[5], y[5], z[5]],
+        [x[6], y[6], z[6]],
+        [x[7], y[7], z[7]],
     ])
+
 
     # ------------------------------------------------------------------------
     # Step 4: Shape function derivatives in local (ξ, η) coordinates
     # ------------------------------------------------------------------------
+    
+    # Derivative of shape function with respect to ξ
+    d1xi = -((1 - xi)*(1 - et))/4
+    d2xi = -((1 - et)*(1 + xi))/8 + ((1 - xi)*(1 - et))/8
+    d3xi =  ((1 - et)*(1 + xi))/4
+    d4xi = -((1 - et)*(1 + xi))/8 + ((1 - xi)*(1 - et))/8
+    d5xi = -((1 - xi)*(1 + et))/4
+    d6xi = -((1 + et)*(1 + xi))/8 + ((1 - xi)*(1 + et))/8
+    d7xi =  ((1 + et)*(1 + xi))/4
+    d8xi = -((1 + et)*(1 + xi))/8 + ((1 - xi)*(1 + et))/8
+    
+    # Derivative of shape function with respect to η
+    d1et = -((1 - xi)**2)/8
+    d2et = -((1 - xi)*(1 + xi))/8
+    d3et = -((1 + xi)**2)/8
+    d4et = -((1 - xi)*(1 + xi))/8
+    d5et =  ((1 - xi)**2)/8
+    d6et =  ((1 - xi)*(1 + xi))/8
+    d7et =  ((1 + xi)**2)/8
+    d8et =  ((1 - xi)*(1 + xi))/8 
+    
     # Each row: derivative w.r.t ξ (row 0) or η (row 1)
     # Each column: corresponds to a node
-    dN = 0.25 * np.array([
-        [-(1.0 - et),  (1.0 - et),  (1.0 + et), -(1.0 + et)],
-        [-(1.0 - xi), -(1.0 + xi),  (1.0 + xi),  (1.0 - xi)]
+    dN = np.array([
+        [d1xi, d2xi, d3xi, d4xi, d5xi, d6xi, d7xi, d8xi],
+        [d1et, d2et, d3et, d4et, d5et, d6et, d7et, d8et],
+        [d1xi, d2xi, d3xi, d4xi, d5xi, d6xi, d7xi, d8xi]
     ])
+
 
     # ------------------------------------------------------------------------
     # Step 5: Build Jacobian matrix (2x2)
@@ -115,31 +121,7 @@ def isoparametric_shapeQ4(x, y, xi, et):
 
 def isoparametric_shapeQ8(x, y, xi, et):
     """
-    Computes the strain-displacement matrix B for an 8-node
-    isoparametric quadratic quadrilateral (Q8) element at a given Gauss point.
-
-    Node numbering (counter-clockwise):
-
-          N4    N7    N3
-           o-----o-----o
-           |           |
-          N8           N6
-           o           o
-           |           |
-           o-----o-----o
-          N1    N5    N2
-
-    Parameters
-    ----------
-    x, y : array-like, shape (8,)
-        Coordinates of the element nodes.
-    xi, et : float
-        Natural coordinates (ξ, η) of the Gauss integration point.
-
-    Returns
-    -------
-    B : ndarray, shape (3, 16)
-        Strain-displacement matrix
+    
     """
 
     # ------------------------------------------------------------------------
@@ -158,7 +140,7 @@ def isoparametric_shapeQ8(x, y, xi, et):
     # Expanded inverse Jacobian storage
     gammaT = np.zeros((4, 4))   
     
-    # Derivative matrix for 8-node element (2 DOFs/node)
+    # Derivative matrix for 8-node element (3 DOFs/node)
     nT = np.zeros((4, 16))       
 
     # ------------------------------------------------------------------------
