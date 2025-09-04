@@ -18,7 +18,7 @@ import matplotlib.cm as cm
 # Load in mesher or mesh
 from mest_test_1 import beam_strip_mesh_q8
 # Import plotting library
-from plotting_functions_2D import plot_overlay_Q8
+from plotting_functions_2D import plot_overlay_Q8, plot_compare_Q8
 
 def benchmark_cantileverBeam(X,E,P,b=0):
     if b==0:
@@ -68,25 +68,34 @@ def benchmark_simpSupportBeam(X,E,P,b=0):
 E, nu = 210e9, 0.3
 
 ## Set block dimensions
-L, H, thk = 0.5, 0.01, 1.0
+L, H, thk = 0.5, 0.05, 1.0
 
 ## Set force negative downward
 P = -100.0 
 
 ## Load in mesh, boundary conditions and loads
-X, IX, bounds, loads = beam_strip_mesh_q8(nx=200,ny=10, L=L, H=H,Fy = P)
+X, IX, bounds, loads = beam_strip_mesh_q8(nx=20,ny=5, L=L, H=H,Fy = P)
 
-d,Sigma,epsilon = benchmark_cantileverBeam(X, E, P,b=1)
+#d,Sigma,epsilon = benchmark_cantileverBeam(X, E, P,b=1)
 d,Sigma,epsilon = benchmark_simpSupportBeam(X, E, P,b=1)
 
 estress = np.zeros((np.shape(Sigma)[0],3))
+estress[:,0] = Sigma
 estress[:,1] = Sigma
+estress[:,2] = Sigma
 estrain = np.zeros((np.shape(epsilon)[0],3))
 estrain[:,0] = epsilon
 
 u = np.zeros((2*len(d)))
 u[1::2] = d
 
+dx = u[0::2]
+dy = u[1::2]
+array = np.zeros((len(IX),1))
+for i in range(np.shape(IX)[0]):
+    nodes = IX[i,1:].astype(int)-1
+    array[i] = np.mean(dy[nodes])
+
 ## Plot finite element analysis results
-plot_overlay_Q8(X, IX, u, estrain, estress, scale=5e4,
-                show_node_labels=False, show_elem_labels=False, node_size = 2)
+plot_compare_Q8(X, IX, u, array, scale=5e4,
+                show_node_labels=True, show_elem_labels=True, node_size = 2)

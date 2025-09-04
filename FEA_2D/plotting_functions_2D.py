@@ -106,7 +106,103 @@ def plot_overlay_Q8(X, IX, u, eps, sig,
     ax.set_title(f'Undeformed (solid) vs Deformed (dashed) — scale={scale:g}')
     plt.tight_layout()
     plt.show()
+
+def plot_compare_Q8(X, IX, u, array, 
+                    scale=5e6, show_node_labels=True, show_elem_labels=False,
+                    node_size = 2):
+    """
+    Overlay undeformed vs deformed mesh for Q4 or Q8 elements.
+
+    X : (nnode, 4) array   [id, x, y, z]
+    IX: (nelem, 1+nen) int [eid, n1, n2, ..., n_nen] (1-based node ids)
+    u : (2*nnode,) dof vector [ux1, uy1, ux2, uy2, ...]
+    scale : visualization scale for displacements
+    """
+
+    def generate_plotting_order(A_i, B_i, a_i, b_i):
+        
+        ## Get non-midsides
+        xedg, yedg = A_i[:4], B_i[:4]
+        
+        ## Get midsides
+        xmid, ymid = A_i[4:], B_i[4:]
+        
+        ## Create box
+        a_i[0::2], b_i[0::2] = xedg, yedg
+        a_i[1::2], b_i[1::2] = xmid, ymid
+        
+        ## Add first entry to the end
+        a_j = np.concatenate((a_i, [a_i[0]]))
+        b_j = np.concatenate((b_i, [b_i[0]]))
+        
+        return a_j, b_j
+
     
+    ## Get minimum and maximum, ignoring any nan if present
+    vmin, vmax = np.nanmin(array), np.nanmax(array)
+    ## Create normalization object 
+    norm = plt.Normalize(vmin=vmin, vmax=vmax)
+    ## Set colormap
+    cmap = plt.get_cmap('viridis')
+    ## Impose colormap
+    sm   = plt.cm.ScalarMappable(norm=norm, cmap=cmap)  # for colorbar
+    
+    ## Reshape u into corresponding x and y values
+    U   = u.reshape(-1, 2)
+    
+    ## Get undeformed values in the original mesh and concatenate along
+    ## the second axi
+    XY = np.c_[X[:,1], X[:,2]]
+    
+    ## Compute deformed mesh with a scaling factor
+    XD = XY + scale * U
+
+    ## Create new nodal x and y
+    xnew = np.zeros((IX[0].shape[0]-1,))
+    ynew = np.zeros((IX[0].shape[0]-1,))
+    unew = np.zeros((IX[0].shape[0]-1,))
+    vnew = np.zeros((IX[0].shape[0]-1,))
+
+    ## Create figure
+    fig, ax = plt.subplots(figsize=(9, 2.6))
+
+    ## Run through every single element
+    for e in range(IX.shape[0]):
+        
+        ## Get element nodes remember to subtract one for python syntax
+        en = IX[e, 1:].astype(int) - 1      # 0-based node indices for this element
+        
+        ## Get elemnet nodal coordinates
+        x, y = XY[en,0], XY[en,1]
+        u, v = XD[en,0], XD[en,1]
+        
+        ## get plotting values
+        xp,yp = generate_plotting_order(x,y,xnew,ynew)
+        up,vp = generate_plotting_order(u,v,unew,vnew)
+        
+        ## Get facecolor and draw a simple polygon    
+        fc = cmap(norm(array[e]))
+        ax.fill(up, vp, facecolor=fc, edgecolor='r', linewidth=1.0, alpha=0.95)
+            
+        ## Plot undeformed state
+        ax.plot(xp,yp,linestyle='-',marker='x',color='black',markersize=node_size,linewidth=2)
+        #ax.plot(up,vp,linestyle='-',marker='x',color='red',markersize='5',linewidth=2,alpha=0.75)
+    
+    ## Show node labels
+    if show_node_labels:
+        for i, (x0, y0) in enumerate(XY):
+            ax.text(x0, y0, f"{i+1}", fontsize=10, ha='center', va='bottom', color='blue')
+
+    # colorbar
+    sm.set_array([])  # matplotlib quirk
+    cbar = plt.colorbar(sm,ax=ax)
+    cbar.set_label('von Mises (per element)')
+
+    #ax.axis('equal')
+    ax.set_xlabel('x [m]'); ax.set_ylabel('y [m]')
+    ax.set_title(f'Undeformed (solid) vs Deformed (dashed) — scale={scale:g}')
+    plt.tight_layout()
+    plt.show()    
     
 
 
