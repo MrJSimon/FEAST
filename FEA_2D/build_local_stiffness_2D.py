@@ -1,9 +1,7 @@
-
-
-
+## Load in module
 import numpy as np
 
-def build_local_stiffness_matrix(element_type, material_type, gauss_func,
+def build_local_stiffness_matrix(element, material_type, gauss_func,
                                  ng, ldof, x, y, thk):
     """
     element_type(x, y, xi, et) -> B, J
@@ -30,8 +28,11 @@ def build_local_stiffness_matrix(element_type, material_type, gauss_func,
             # Set weight factors
             wi, wj = w_array[i],  w_array[j]
 
-            # Get strain displacement matrix and Jacobian
-            B, J = element_type(x, y, xi, et)
+            # Get element solution
+            element_solution= element(x, y, xi, et)
+            
+            # Set strain displacement matrix and Jacobian
+            B, J = element_solution.B, element_solution.J
 
             # Get determinant of the jacobian matrix
             detJ = np.linalg.det(J)

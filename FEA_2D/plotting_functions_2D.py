@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib import animation
 
 
-def plot_overlay_Q8(X, IX, u, eps, sig, 
+def plot_overlay(X, IX, u, eps, sig, 
                     scale=5e6, show_node_labels=True, show_elem_labels=False,
                     node_size = 2):
     """
@@ -19,11 +19,14 @@ def plot_overlay_Q8(X, IX, u, eps, sig,
 
     def generate_plotting_order(A_i, B_i, a_i, b_i):
         
+        ## Set index
+        ind_i = int(A_i.shape[0]/2.0)
+        
         ## Get non-midsides
-        xedg, yedg = A_i[:4], B_i[:4]
+        xedg, yedg = A_i[:ind_i], B_i[:ind_i]
         
         ## Get midsides
-        xmid, ymid = A_i[4:], B_i[4:]
+        xmid, ymid = A_i[ind_i:], B_i[ind_i:]
         
         ## Create box
         a_i[0::2], b_i[0::2] = xedg, yedg
@@ -61,10 +64,10 @@ def plot_overlay_Q8(X, IX, u, eps, sig,
     XD = XY + scale * U
 
     ## Create new nodal x and y
-    xnew = np.zeros((IX[0].shape[0]-1,))
-    ynew = np.zeros((IX[0].shape[0]-1,))
-    unew = np.zeros((IX[0].shape[0]-1,))
-    vnew = np.zeros((IX[0].shape[0]-1,))
+    xnew = np.zeros((IX[0].shape[0]-2,))
+    ynew = np.zeros((IX[0].shape[0]-2,))
+    unew = np.zeros((IX[0].shape[0]-2,))
+    vnew = np.zeros((IX[0].shape[0]-2,))
 
     ## Create figure
     fig, ax = plt.subplots(figsize=(9, 2.6))
@@ -73,16 +76,23 @@ def plot_overlay_Q8(X, IX, u, eps, sig,
     for e in range(IX.shape[0]):
         
         ## Get element nodes remember to subtract one for python syntax
-        en = IX[e, 1:].astype(int) - 1      # 0-based node indices for this element
+        en = IX[e, 1:-1].astype(int) - 1      # 0-based node indices for this element
         
         ## Get elemnet nodal coordinates
         x, y = XY[en,0], XY[en,1]
         u, v = XD[en,0], XD[en,1]
         
-        ## get plotting values
-        xp,yp = generate_plotting_order(x,y,xnew,ynew)
-        up,vp = generate_plotting_order(u,v,unew,vnew)
+        ## Set index
+        ind_i = int(x.shape[0]/2.0)
         
+        if ind_i > 2:
+            ## get plotting values
+            xp,yp = generate_plotting_order(x,y,xnew,ynew)
+            up,vp = generate_plotting_order(u,v,unew,vnew)
+        else:
+            xp,yp = x,y
+            up,vp = u,v
+            
         ## Get facecolor and draw a simple polygon    
         fc = cmap(norm(vmiss[e]))
         ax.fill(up, vp, facecolor=fc, edgecolor='r', linewidth=1.0, alpha=0.95)

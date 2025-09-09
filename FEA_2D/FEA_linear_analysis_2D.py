@@ -34,7 +34,7 @@ class FEA:
                  thk = 1.0, ng = 2):
          
         ## Get number of element, element nodes and total degrees of freedom
-        ne, nen, ndof = self.get_topology(X, IX)
+        ne, _, ndof = self.get_topology(X, IX)
 
         ## Get stiffness and force vector
         KG, P, _ = self.matrix_allocation(ndof)
@@ -46,7 +46,7 @@ class FEA:
         KG = buildstiffG(KG, CE, ng=ng, X=X, IX=IX, 
                         element_type=element_type, 
                         gauss_func=GaussFunc, thk=thk,
-                        ne = ne, nen = nen)
+                        ne = ne)
         
         ## Build load vector
         P = buildload(loads,P)
@@ -58,7 +58,7 @@ class FEA:
         self.u = np.linalg.solve(KG, P)
         
         ## Recover stresses and strains
-        self.estrain, self.estress = recover_ess_2D(CE,element_type,self.u,X,IX,ne,nen)
+        self.estrain, self.estress = recover_ess_2D(CE,element_type,self.u,X,IX,ne)
          
     def get_topology(self,X,IX):
         

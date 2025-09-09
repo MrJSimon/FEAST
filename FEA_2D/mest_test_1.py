@@ -104,7 +104,6 @@ def beam_strip_mesh_q4(nx=16, ny=1, L=0.5, H=0.01, Fy=-1.0):
             n_tl = nid(i,   j+1)
             IX_list.append([eid, n_bl, n_br, n_tr, n_tl])
             eid += 1
-    IX = np.array(IX_list, dtype=int)
 
     # zero BCs (bounds): clamp bottom-left and bottom-right corners
     n_bottom_left  = nid(0,   0)
@@ -120,11 +119,16 @@ def beam_strip_mesh_q4(nx=16, ny=1, L=0.5, H=0.01, Fy=-1.0):
     mid_col = nx // 2
     n_top_mid = nid(mid_col, ny)
     loads = np.array([[n_top_mid, 2, float(Fy)]], dtype=float)
+    
+    ##
+    IX = np.ones((len(IX_list),len(IX_list[0])+1), dtype=object)
+    IX[:,:-1] = np.array(IX_list, dtype=int)
+    IX[:,-1] = 'IPQ4'
 
-    import matplotlib.pyplot as plt
-    plt.plot(X[:,1],X[:,2],linestyle='none',marker='o')
+    #import matplotlib.pyplot as plt
+    #plt.plot(X[:,1],X[:,2],linestyle='none',marker='o')
 
-    plt.show()
+    #plt.show()
 
     return X, IX, bounds, loads
 
@@ -198,8 +202,7 @@ def beam_strip_mesh_q8(nx=8, ny=1, L=0.5, H=0.01, Fy=-100.0,
             n8 = idmap[i0,     j0 + 1]   # mid-left
             IX_list.append([eid, n1, n2, n3, n4, n5, n6, n7, n8])
             eid += 1
-    IX = np.array(IX_list, dtype=int)
-
+   
     # default BCs: clamp bottom-left & bottom-right corners
     def nid_corner_left_bottom():
         return idmap[0, 0]
@@ -217,6 +220,12 @@ def beam_strip_mesh_q8(nx=8, ny=1, L=0.5, H=0.01, Fy=-100.0,
     mid_col = nx // 2
     top_nid = idmap[2*mid_col, 2*ny]  # top corner at mid span (if nx even, this is at L*0.5 approx)
     loads = np.array([[top_nid, 2, float(Fy)]], dtype=float)
+
+    ##
+    IX = np.ones((len(IX_list),len(IX_list[0])+1), dtype=object)
+    IX[:,:-1] = np.array(IX_list, dtype=int)
+    IX[:,-1] = 'IPQ8'
+    
 
     return X, IX, bounds, loads
 
