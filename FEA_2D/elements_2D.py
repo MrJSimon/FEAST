@@ -2,7 +2,9 @@
 ##
 ## Author:      Jamie E. Simon & Jacob Ø. H. Rasmussen
 ##
-## Description: 
+## Description: TO do, add the shapefunctions (not just the derivaties)
+##                     add/write matrixmultiplication instead of using
+##                     build in functionality (computation faster)
 ##
 ##############################################################################
 

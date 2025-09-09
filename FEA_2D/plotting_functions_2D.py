@@ -168,10 +168,10 @@ def plot_compare_Q8(X, IX, u, array,
     XD = XY + scale * U
 
     ## Create new nodal x and y
-    xnew = np.zeros((IX[0].shape[0]-1,))
-    ynew = np.zeros((IX[0].shape[0]-1,))
-    unew = np.zeros((IX[0].shape[0]-1,))
-    vnew = np.zeros((IX[0].shape[0]-1,))
+    xnew = np.zeros((IX[0].shape[0]-2,))
+    ynew = np.zeros((IX[0].shape[0]-2,))
+    unew = np.zeros((IX[0].shape[0]-2,))
+    vnew = np.zeros((IX[0].shape[0]-2,))
 
     ## Create figure
     fig, ax = plt.subplots(figsize=(9, 2.6))
@@ -180,15 +180,22 @@ def plot_compare_Q8(X, IX, u, array,
     for e in range(IX.shape[0]):
         
         ## Get element nodes remember to subtract one for python syntax
-        en = IX[e, 1:].astype(int) - 1      # 0-based node indices for this element
+        en = IX[e, 1:-1].astype(int) - 1      # 0-based node indices for this element
         
         ## Get elemnet nodal coordinates
         x, y = XY[en,0], XY[en,1]
         u, v = XD[en,0], XD[en,1]
         
-        ## get plotting values
-        xp,yp = generate_plotting_order(x,y,xnew,ynew)
-        up,vp = generate_plotting_order(u,v,unew,vnew)
+        ## Set index
+        ind_i = int(x.shape[0]/2.0)
+        
+        if ind_i > 2:
+            ## get plotting values
+            xp,yp = generate_plotting_order(x,y,xnew,ynew)
+            up,vp = generate_plotting_order(u,v,unew,vnew)
+        else:
+            xp,yp = x,y
+            up,vp = u,v
         
         ## Get facecolor and draw a simple polygon    
         fc = cmap(norm(array[e]))

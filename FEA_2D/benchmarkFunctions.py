@@ -17,8 +17,9 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 # Load in mesher or mesh
 from mest_test_1 import beam_strip_mesh_q8
+from mest_test_1 import beam_strip_mesh_q4
 # Import plotting library
-from plotting_functions_2D import plot_overlay_Q8, plot_compare_Q8
+from plotting_functions_2D import plot_overlay, plot_compare_Q8
 
 def benchmark_cantileverBeam(X,E,P,b=0):
     if b==0:
@@ -74,7 +75,7 @@ L, H, thk = 0.5, 0.05, 1.0
 P = -100.0 
 
 ## Load in mesh, boundary conditions and loads
-X, IX, bounds, loads = beam_strip_mesh_q8(nx=20,ny=5, L=L, H=H,Fy = P)
+X, IX, bounds, loads = beam_strip_mesh_q8(nx=5,ny=5, L=L, H=H,Fy = P)
 
 #d,Sigma,epsilon = benchmark_cantileverBeam(X, E, P,b=1)
 d,Sigma,epsilon = benchmark_simpSupportBeam(X, E, P,b=1)
@@ -93,7 +94,7 @@ dx = u[0::2]
 dy = u[1::2]
 array = np.zeros((len(IX),1))
 for i in range(np.shape(IX)[0]):
-    nodes = IX[i,1:].astype(int)-1
+    nodes = IX[i,1:-1].astype(int)-1
     array[i] = np.mean(dy[nodes])
 
 ## Plot finite element analysis results
