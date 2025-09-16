@@ -117,109 +117,157 @@ def plot_overlay(X, IX, u, eps, sig,
     plt.tight_layout()
     plt.show()
 
-def plot_compare_Q8(X, IX, u, array, 
-                    scale=5e6, show_node_labels=True, show_elem_labels=False,
-                    node_size = 2):
-    """
-    Overlay undeformed vs deformed mesh for Q4 or Q8 elements.
+import matplotlib.pyplot as plt
+import numpy as np
+from itertools import cycle
 
-    X : (nnode, 4) array   [id, x, y, z]
-    IX: (nelem, 1+nen) int [eid, n1, n2, ..., n_nen] (1-based node ids)
-    u : (2*nnode,) dof vector [ux1, uy1, ux2, uy2, ...]
-    scale : visualization scale for displacements
+# Global dictionary to keep track of used colors per axes
+_ax_color_cycle = {}
+
+import matplotlib.pyplot as plt
+import numpy as np
+from itertools import cycle
+
+# Global dictionary to keep track of used colors per axes
+_ax_color_cycle = {}
+
+import matplotlib.pyplot as plt
+import numpy as np
+from itertools import cycle
+
+# Keep track of used colors per axes
+_ax_color_cycle = {}
+
+import matplotlib.pyplot as plt
+import numpy as np
+from itertools import cycle
+
+# Keep track of used colors per axes
+_ax_color_cycle = {}
+
+def plot_compare_Q8(X, IX, u, array=None,
+                    scale=5e6, show_node_labels=True, show_elem_labels=False,
+                    node_size=2, ax=None, alpha=0.95, plot_undeformed=True,
+                    vmin=None, vmax=None):
+    """
+    Plot deformed Q4 or Q8 mesh, optionally coloring elements with 'array'.
+    Automatically cycles edge colors for multiple overlays and can toggle undeformed mesh.
+    
+    Parameters
+    ----------
+    X : (nnode,4) array of node coordinates [id,x,y,z]
+    IX : (nelem,1+nen) element connectivity [eid,n1,n2,...,n_nen]
+    u : (2*nnode,) displacement vector [ux1,uy1,ux2,uy2,...]
+    array : (nelem,) optional element-based quantity to color (e.g., von Mises stress)
+            if None, only edge color is used
+    scale : float, scaling factor for deformations
+    ax : matplotlib axes; if None, creates new figure
+    alpha : float, transparency of filled elements
+    plot_undeformed : bool, toggle undeformed mesh drawing
+    vmin, vmax : float, optional min/max for colormap (for consistent colorbar)
     """
 
     def generate_plotting_order(A_i, B_i, a_i, b_i):
-        
-        ## Get non-midsides
         xedg, yedg = A_i[:4], B_i[:4]
-        
-        ## Get midsides
         xmid, ymid = A_i[4:], B_i[4:]
-        
-        ## Create box
         a_i[0::2], b_i[0::2] = xedg, yedg
         a_i[1::2], b_i[1::2] = xmid, ymid
-        
-        ## Add first entry to the end
         a_j = np.concatenate((a_i, [a_i[0]]))
         b_j = np.concatenate((b_i, [b_i[0]]))
-        
         return a_j, b_j
 
-    
-    ## Get minimum and maximum, ignoring any nan if present
-    vmin, vmax = np.nanmin(array), np.nanmax(array)
-    ## Create normalization object 
-    norm = plt.Normalize(vmin=vmin, vmax=vmax)
-    ## Set colormap
-    cmap = plt.get_cmap('viridis')
-    ## Impose colormap
-    sm   = plt.cm.ScalarMappable(norm=norm, cmap=cmap)  # for colorbar
-    
-    ## Reshape u into corresponding x and y values
-    U   = u.reshape(-1, 2)
-    
-    ## Get undeformed values in the original mesh and concatenate along
-    ## the second axi
+    # Create axes if not provided
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(9, 2.6))
+
+    # Edge color cycling for multiple overlays
+    default_colors = ['r', 'b', 'g', 'm', 'c', 'y', 'k']
+    if ax in _ax_color_cycle:
+        color_cycle = _ax_color_cycle[ax]
+    else:
+        color_cycle = cycle(default_colors)
+        _ax_color_cycle[ax] = color_cycle
+    edgecolor = next(color_cycle)
+
+    # Handle colormap only if array is given
+    use_colormap = array is not None
+    if use_colormap:
+        if vmin is None: vmin = np.nanmin(array)
+        if vmax is None: vmax = np.nanmax(array)
+        norm = plt.Normalize(vmin=vmin, vmax=vmax)
+        cmap = plt.get_cmap('viridis')
+        sm = plt.cm.ScalarMappable(norm=norm, cmap=cmap)
+
+    # Reshape displacements and compute deformed positions
+    U = u.reshape(-1, 2)
     XY = np.c_[X[:,1], X[:,2]]
-    
-    ## Compute deformed mesh with a scaling factor
     XD = XY + scale * U
 
-    ## Create new nodal x and y
     xnew = np.zeros((IX[0].shape[0]-2,))
     ynew = np.zeros((IX[0].shape[0]-2,))
     unew = np.zeros((IX[0].shape[0]-2,))
     vnew = np.zeros((IX[0].shape[0]-2,))
 
-    ## Create figure
-    fig, ax = plt.subplots(figsize=(9, 2.6))
-
-    ## Run through every single element
+    # Plot each element
     for e in range(IX.shape[0]):
-        
-        ## Get element nodes remember to subtract one for python syntax
-        en = IX[e, 1:-1].astype(int) - 1      # 0-based node indices for this element
-        
-        ## Get elemnet nodal coordinates
+        en = IX[e, 1:-1].astype(int) - 1  # 0-based indices
         x, y = XY[en,0], XY[en,1]
-        u, v = XD[en,0], XD[en,1]
-        
-        ## Set index
+        u_e, v_e = XD[en,0], XD[en,1]
         ind_i = int(x.shape[0]/2.0)
-        
+
         if ind_i > 2:
-            ## get plotting values
-            xp,yp = generate_plotting_order(x,y,xnew,ynew)
-            up,vp = generate_plotting_order(u,v,unew,vnew)
+            xp, yp = generate_plotting_order(x, y, xnew, ynew)
+            up, vp = generate_plotting_order(u_e, v_e, unew, vnew)
         else:
-            xp,yp = x,y
-            up,vp = u,v
-        
-        ## Get facecolor and draw a simple polygon    
-        fc = cmap(norm(array[e]))
-        ax.fill(up, vp, facecolor=fc, edgecolor='r', linewidth=1.0, alpha=0.95)
-            
-        ## Plot undeformed state
-        ax.plot(xp,yp,linestyle='-',marker='x',color='black',markersize=node_size,linewidth=2)
-        #ax.plot(up,vp,linestyle='-',marker='x',color='red',markersize='5',linewidth=2,alpha=0.75)
-    
-    ## Show node labels
-    if show_node_labels:
+            xp, yp = x, y
+            up, vp = u_e, v_e
+
+        # Determine facecolor
+        fc = cmap(norm(array[e])) if use_colormap else 'none'
+        ax.fill(up, vp, facecolor=fc, edgecolor=edgecolor, linewidth=1.0, alpha=alpha)
+
+        # Draw undeformed mesh if requested
+        if plot_undeformed:
+            ax.plot(xp, yp, linestyle='-', marker='x', color='black',
+                    markersize=node_size, linewidth=2)
+
+    # Node labels
+    if show_node_labels and plot_undeformed:
         for i, (x0, y0) in enumerate(XY):
             ax.text(x0, y0, f"{i+1}", fontsize=10, ha='center', va='bottom', color='blue')
 
-    # colorbar
-    sm.set_array([])  # matplotlib quirk
-    cbar = plt.colorbar(sm,ax=ax)
-    cbar.set_label('von Mises (per element)')
+    # Colorbar only if array is given
+    if use_colormap:
+        if not hasattr(ax, "_colorbar_added") or not ax._colorbar_added:
+            sm.set_array([])
+            cbar = plt.colorbar(sm, ax=ax)
+            cbar.set_label('von Mises (per element)')
+            ax._colorbar_added = True
 
-    #ax.axis('equal')
-    ax.set_xlabel('x [m]'); ax.set_ylabel('y [m]')
-    ax.set_title(f'Undeformed (solid) vs Deformed (dashed) — scale={scale:g}')
+    ax.set_xlabel('x [m]')
+    ax.set_ylabel('y [m]')
+    ax.set_title(f'Deformed mesh — scale={scale:g}')
+    ax.axis('equal')
     plt.tight_layout()
-    plt.show()    
+
+
+
+
+
+def nodal_to_element_average(IX, nodal_values):
+    """
+    Average nodal values to element values.
+    
+    IX : (nelem, 1+nen) connectivity (1-based ids)
+    nodal_values : (nnode,) array of scalar values at nodes
+    Returns: (nelem,) array of averaged element values
+    """
+    nelem = IX.shape[0]
+    elem_values = np.zeros(nelem)
+    for e in range(nelem):
+        nodes = IX[e, 1:-1].astype(int) - 1   # convert to 0-based
+        elem_values[e] = np.mean(nodal_values[nodes])
+    return elem_values    
     
 
 
