@@ -95,6 +95,57 @@ def mesh2(Fy = -1.0):
     loads = np.array([F1,F2])
     
     return X, IX, bounds, loads
+    
+def mesh3(Fy = -1.0, Vy = 1.0 ):
+     
+    ## Nodal coordinates: 'N', node_id, x-coord, y-coord, z-coord
+    n1  = [1,   0,	     0,	     0]
+    n2  = [2,   0,	     1.0,    0]
+    n3  = [3,   1.0,       0,	 0]
+    n4  = [4,	1.0,     1.0,	 0]
+    
+    ## Element connectivity: 'EN', element_id,  node_ids
+    E1 = [1,	1,	3,	4,	2]
+
+    ## Nodal displacements/boundary conditions: 
+    ## node_id, directition--> UX = 1, UY = 2, UZ = 3, value
+    D1 = [1, 1,	0]
+    D2 = [1, 2,	0]
+    D3 = [3, 2,	0]
+    D4 = [2, 1,	0]
+    
+    ## Nodal load: 'F', node_id, 'FX / FY', value
+    ## node_id, directition--> FX = 1, FY = 2, FZ = 3, value
+    F1 = [2,2,Fy]
+    F2 = [4,2,Fy]
+    
+    ## Nodal velocities: 'V', node_id, 'VX / VY', value
+    ## node_id, directition--> VX = 1, VY = 2, VZ = 3, value
+    V1 = [2,2,Vy]
+    V2 = [4,2,Vy]
+    
+
+    ## Create coordinate matrix
+    X = np.array([n1,n2,n3,n4])
+    
+    ## Create list
+    IX_list = [E1]
+ 
+    ## Create topology matrix
+    IX = np.ones((len(IX_list),len(IX_list[0])+1), dtype=object)
+    IX[:,:-1] = np.array(IX_list, dtype=int)
+    IX[:,-1] = 'IPQ4'
+    
+    ## Create displacement matrix
+    bounds = np.array([D1,D2,D3,D4])
+    
+    ## Create force matrix
+    loads = np.array([F1,F2])
+    
+    ## Create velocity matrix
+    velocities = np.array([V1, V2])
+    
+    return X, IX, bounds, loads, velocities
 
 
 def beam_strip_mesh_q4(nx=16, ny=1, L=0.5, H=0.01, Fy=-1.0):

@@ -51,6 +51,5 @@ def enforce_bc_vector(bounds, vec):
         dof = 2 * node_id + (int(direction) - 1)
         # Enforce the bounds
         #print(dof)
-        vec[dof] = 0.0
-        
+        vec[dof] = 0.0       
     return vec

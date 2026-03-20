@@ -26,5 +26,5 @@ def buildload(loads, P):
         # Set the target node in pdof
         pdof = 2*node_id + (direction - 1)  # direction 1->+0, 2->+1
         # Re-allocate into global force vector
-        P[pdof] += float(value)
+        P[pdof] = float(value)
     return P

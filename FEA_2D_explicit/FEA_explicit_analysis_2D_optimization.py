@@ -20,19 +20,22 @@ from build_loads_2D import buildload
 class FEA_explicit:
     """Explicit dynamic finite element analysis."""
 
-    def __init__(self, X, IX, bounds, loads,
-                 material_type, element_type, params,
+    def __init__(self, params,
+                 X, IX, 
+                 bounds, loads, velocities,
+                 material_type, element_type, ramping_type,
                  thk=1.0, rho=1.0, ng=2,
-                 dt=1e-7, total_time=0.001):
+                 dt=1e-7, total_time=0.001, nsteps = int):
+
+        # Has to be updated as input
+        accelerations = np.copy(velocities)
+        #print(accelerations)
 
         # Pre-compute the entire mesh - connectivity
         self.element_cache = self.build_element_cache(IX,element_type)
         
         # Pre-compute the gauss points
         self.gauss_points = self.build_gauss_point_cache(ng,GaussFunc)
-       
-        # Computer number of time steps
-        nsteps = int(total_time / dt)
 
         # Set print interval
         print_interval = max(1, nsteps // 100)
@@ -63,14 +66,10 @@ class FEA_explicit:
         # Initialize Gauss-point state variables
         gp_state = self.initialize_gauss_state(IX, element_type, ne, ng)
 
-        # Full external load vector
-        fext_full[:] = 0.0
-        fext_full = buildload(loads, fext_full)
-        fext_full = enforce_bc_vector(bounds, fext_full)
+        # Full external velocity vector
+        v = buildload(velocities, v)
+        v = enforce_bc_vector(bounds,v)
         
-        # Initial external force is zero for a ramped load
-        current_fext = np.zeros_like(fext_full)
-
         # Initial internal force at t = 0
         fint = self.build_internal_force(
             Xref=Xref,
@@ -87,17 +86,23 @@ class FEA_explicit:
             step_inc=0.0
         )
         
+        fint_old = np.zeros_like(fint)
+        
         # Enforce boundary conditions
-        fint = enforce_bc_vector(bounds, fint)
+        #fint = enforce_bc_vector(bounds, fint)
 
         # Initial acceleration at t = 0
-        a[:] = (current_fext - fint) / M
+        a[:] = - fint / M
         
         # Enforce boundary conditions onto the acceleration
         a = enforce_bc_vector(bounds, a)
+        a = enforce_bc_vector(velocities,a)
 
         # Initial half-step velocity
-        v_half = v - 0.5 * dt * a
+        v_half = - 0.5 * dt * a
+        
+        # empose the controlled velocity on v_half
+        v_half = buildload(velocities, v_half)
 
         # Initiate time
         current_time = 0.0
@@ -108,19 +113,32 @@ class FEA_explicit:
             # 0) Update time to t_{n+1}
             current_time = (n + 1) * dt
 
+            # Ramp up velocity
+            velocities_ramp = np.copy(velocities)
+            velocities_ramp[:,2] = ramping_type(velocities_ramp[:,2], n, nsteps, xcenter = 0.01, slope = 1.5)
+
+            # test_i = np.linspace(0,nsteps,num=nsteps,endpoint=True)
+            # for val_i in test_i:
+                # vel_ramp_test = ramping_type(
+                # plt.figure()
+                # plt.plot(
+
             # 1) Update half-step velocity --> v_{n+1/2} = v_{n-1/2} + dt * a_n
             v_half += dt * a
             
             # enforce boundary conditions on update velocity
             v_half = enforce_bc_vector(bounds, v_half)
-
+           
+            # empose the velocity boundary conditions onto
+            v_half = buildload(velocities_ramp, v_half)
+                       
             # 2) Compute displacement increment --> = delta_u = dt * v_{n+1/2}
             delta_u = dt * v_half 
 
             # Update displacement
             D += delta_u
 
-            # 3) Update lagrangian coordinate system
+            # 3) Update current-lagrangian coordinate system
             Xcur[:, 0] += delta_u[0::2] # xcoord
             Xcur[:, 1] += delta_u[1::2] # ycoord
 
@@ -140,47 +158,78 @@ class FEA_explicit:
                 step_inc=float(n + 1)
             )
             
+            alpha = 1.0
+            beta = 0.01
+            
             # Enforce boundary conditions on internal force
             fint = enforce_bc_vector(bounds, fint)
+            
+            # 5) Update acceleration --> a_{n+1} = (- fint_{n+1}) / M
+            #a =  - fint / M
 
-            # 4) External force ramp
-            if total_time > 0.0:
-                load_factor = min(current_time / total_time, 1.0)
-            else:
-                load_factor = 1.0
+            # --- 5) Update acceleration with Rayleigh Damping ---
 
-            current_fext = fext_full * load_factor
-            current_fext = enforce_bc_vector(bounds, current_fext)
+            # Mass-proportional term (alpha): F_alpha = alpha * M * v
+            # Note: M cancels out in (alpha * M * v) / M, leaving just (alpha * v)
+            f_alpha_term = alpha * v_half
 
-            # 5) Update acceleration --> a_{n+1} = (fext_{n+1} - fint_{n+1}) / M
-            a = (current_fext - fint) / M
+            # Stiffness-proportional term (beta): F_beta approx beta * (df_int / dt)
+            # We use the change in internal force as a proxy for the stiffness matrix
+            f_beta_term = (beta / dt) * (fint - fint_old) 
+
+            # New Acceleration calculation: a = (F_ext - F_int - F_alpha - F_beta) / M
+            # For your case (no external nodal forces applied directly to free nodes):
+            a = (-fint / M) - f_alpha_term - (f_beta_term / M)
+
+            # Store fint for the next beta calculation
+            fint_old = np.copy(fint)
+
+            # 6) Compute ramp-up during acceleration period
+            a_tarr = np.copy(velocities)
+            v_next = np.copy(velocities)
+            v_curr = np.copy(velocities)
+            v_next[:,2] = ramping_type(v_next[:,2], n+1, nsteps, xcenter = 0.01, slope = 1.5)
+            v_curr[:,2] = ramping_type(v_curr[:,2], n, nsteps, xcenter = 0.01, slope = 1.5)
+            # Compute targeted acceleration
+            a_tarr[:,2] = (v_next[:,2] - v_curr[:,2])/dt
+            #print('velocities')
+            #print(v_next[:,2] ,v_curr[:,2] ,a_tarr[:,2])
+            #break
             
             # Enforce boundary conditions on acceleration
             a = enforce_bc_vector(bounds, a)
-
+            # Enforce velocity bounds at the acceleration to zero, constant velocity equal 0 acceleration
+            a = enforce_bc_vector(velocities,a)
+            # Build load
+            a = buildload(a_tarr,a)
+            
+            
             # 6) Track energy for entire model
             E_kin = 0.5 * np.sum(M * v_half**2)
             
             # Residual check
-            residual = current_fext - fint - M * a
+            residual = - fint - M * a
             res_norm = np.linalg.norm(residual)
             
             # Show step
             if (n + 1) == 1 or (n + 1) % print_interval == 0 or (n + 1) == nsteps:
-              print(f"step={n+1} of n={nsteps} -> |r|={res_norm:.3e} and E_kin = {E_kin}")
-              
+             print(f"step={n+1} of n={nsteps} -> |r|={res_norm:.3e} and E_kin = {E_kin}")
+            
+            ## Compute reaction force
+            reactions = fint + M * a
           
             # Get stress and strain at current step
             estrain, estress = recover_explicit_2D(self, Xref, Xcur, IX, gp_state, params, material_type, element_type, ne)
 
             # Add deformation and forces to history
-            P_hist[n-1,:] = current_fext
+            P_hist[n-1,:] = reactions
             D_hist[n-1,:] = D
             estrain_hist[n-1,:] = estrain
             estress_hist[n-1,:] = estress
                 
-        print("analysis finished")
-
+        # print("analysis finished")
+        # print(f"step={n+1} of n={nsteps} -> |r|={res_norm:.3e} and E_kin = {E_kin}")
+        # print('Optimized parameters -> ', params)
         # Recover stresses and strain
         self.estrain, self.estress = recover_explicit_2D(
             self, Xref, Xcur, IX, gp_state, params, material_type, element_type, ne

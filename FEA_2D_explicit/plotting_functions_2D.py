@@ -122,6 +122,7 @@ def plot_overlay(X, IX, u, eps, sig,
     ax.set_title(f'Undeformed (solid) vs Deformed (dashed) — scale={scale:g}')
     plt.tight_layout()
     plt.show()
+    
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -367,3 +368,204 @@ def plot_overlay_Q8_animation(X, IX, u_hist, estress_hist,
     plt.close(fig)
     print(f"Saved animation to {out_path}")
 
+def plot_overlay_Q4_animation(X, IX, u_hist, eps_hist, estress_hist, element_type,
+                    scale_to_mm=1000, scale_deformations = 5e6, 
+                    show_node_labels=True, show_elem_labels=False,
+                    node_size = 2,out_path="overlay_history.gif", fps=6):
+    """
+    Overlay undeformed vs deformed mesh for Q4 or Q8 elements.
+
+    X : (nnode, 4) array   [id, x, y, z]
+    IX: (nelem, 1+nen) int [eid, n1, n2, ..., n_nen] (1-based node ids)
+    u : (2*nnode,) dof vector [ux1, uy1, ux2, uy2, ...]
+    scale : visualization scale for displacements
+    """
+
+    def generate_plotting_order(A_i, B_i, a_i, b_i):
+        
+        ## Set index
+        ind_i = int(A_i.shape[0]/2.0)
+        
+        ## Get non-midsides
+        xedg, yedg = A_i[:ind_i], B_i[:ind_i]
+        
+        ## Get midsides
+        xmid, ymid = A_i[ind_i:], B_i[ind_i:]
+        
+        ## Create box
+        a_i[0::2], b_i[0::2] = xedg, yedg
+        a_i[1::2], b_i[1::2] = xmid, ymid
+        
+        ## Add first entry to the end
+        a_j = np.concatenate((a_i, [a_i[0]]))
+        b_j = np.concatenate((b_i, [b_i[0]]))
+        
+        return a_j, b_j
+
+    ## Get component stresses
+    sx_all, sy_all, txy_all = estress_hist[...,0], estress_hist[...,1], estress_hist[...,2]
+       
+    ## Get von-misses
+    vm_all = np.sqrt(sx_all**2 - sx_all*sy_all + sy_all**2 + 3.0*txy_all**2)
+    
+    ## Get minimum and maximum, ignoring any nan if present
+    vmin, vmax = np.nanmin(vm_all), np.nanmax(vm_all)
+    
+    ## Create normalization object 
+    norm = plt.Normalize(vmin=vmin, vmax=vmax)
+    
+    ## Set colormap
+    cmap = plt.get_cmap('viridis')
+    
+    ## Set number of steps
+    nsteps = u_hist.shape[0]
+    
+    ## Set number of elements
+    nelem  = IX.shape[0]
+    
+    ## Set number of nodes
+    nnode  = X.shape[0]
+    
+    ## Reshape u into corresponding x and y values
+    U_hist = u_hist.reshape(nsteps, nnode, 2)
+    
+    ## Get undeformed values in the original mesh and concatenate along
+    ## the second axi
+    XY = np.c_[X[:,1], X[:,2]]
+    
+    ## Compute deformed mesh with a scaling factor
+    XD_hist = XY[None, :, :] + U_hist * scale_deformations
+    
+    ## Get minimum and maximum values
+    x_all = np.concatenate([XY[:,0], XD_hist.reshape(-1,2)[:,0]])
+    y_all = np.concatenate([XY[:,1], XD_hist.reshape(-1,2)[:,1]])
+    pad_x = 0.02 * (x_all.max() - x_all.min() + 1e-12)
+    pad_y = 0.02 * (y_all.max() - y_all.min() + 1e-12)
+    xlim = ((x_all.min()-pad_x)*scale_to_mm, (x_all.max()+pad_x)*scale_to_mm)
+    ylim = ((y_all.min()-pad_y)*scale_to_mm, (y_all.max()+pad_y)*scale_to_mm)
+
+    ## Create new nodal x and y
+    xnew = np.zeros((IX[0].shape[0]-2,))
+    ynew = np.zeros((IX[0].shape[0]-2,))
+    unew = np.zeros((IX[0].shape[0]-2,))
+    vnew = np.zeros((IX[0].shape[0]-2,))
+    
+    # Set print interval
+    print_interval = max(1, nsteps // 50)
+
+    ## Initiate figure
+    fig, ax = plt.subplots(figsize=(9, 2.6))
+    ax.set_xlim(xlim) # multiply by 1000 to allow for mm
+    ax.set_ylim(ylim) # mulitply by 1000 to allow for mm
+    #ax.set_aspect('equal', adjustable='box')
+    ax.set_xlabel('x [mm]')
+    ax.set_ylabel('y [mm]')
+    cbar = plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax)
+    cbar.set_label('von Mises (per element)')
+
+    # Storage for artists
+    patches = []
+    undeformed_lines = []
+
+    # Init artists
+    for e in range(nelem):
+          
+          
+        print('plotting undeformed shape')  
+        ## Get element id
+        e_id = IX[e, -1]
+
+        ## Get element info
+        element_info = element_type(e_id)
+
+        ## Number of nodes and dofs per node
+        nen  = element_info.nen
+
+        ## Node indices (convert to 0-based)
+        en = IX[e, 1:1+nen].astype(int) - 1
+
+        ## Get elemnet nodal coordinates
+        x, y = XY[en,0], XY[en,1]
+        
+        ## Get elemnet nodal coordinates
+        x, y = XY[en,0], XY[en,1]
+        #u, v = XD[en,0], XD[en,1]
+        
+        ## Set index
+        #ind_i = int(x.shape[0]/2.0)
+        
+        #if ind_i > 2:
+            ## get plotting values
+        #    xp,yp = generate_plotting_order(x,y,xnew,ynew)
+        #    up,vp = generate_plotting_order(u,v,unew,vnew)
+        #else:
+        xp,yp = x,y
+        #up,vp = u,v
+
+
+        #xp, yp = generate_plotting_order(XY[en,0], XY[en,1], xnew.copy(), ynew.copy())
+        undeformed_line, = ax.plot(xp, yp, linestyle='-', marker='x', color='black',
+                                   markersize=node_size, linewidth=2)
+        undeformed_lines.append(undeformed_line)
+        patch = ax.fill(xp, yp, facecolor='none', edgecolor='none', linewidth=1.0, alpha=0.95)[0]
+        patches.append(patch)
+
+    if show_node_labels:
+        for i, (x0, y0) in enumerate(XY):
+            ax.text(x0, y0, f"{i+1}", fontsize=10, ha='center', va='bottom', color='blue')
+
+    # Define your skip interval
+    n_skip = 2  # Save every 5th step
+
+    # Slice your history data
+    # This takes every n-th frame: [start:stop:step]
+    U_hist_reduced = U_hist[::n_skip]
+    vm_all_reduced = vm_all[::n_skip]
+    nsteps_reduced = len(U_hist_reduced)
+
+    def update(frame):
+        # Use the sliced data
+        U  = U_hist_reduced[frame]
+        XD = XY + U * scale_deformations
+        ax.set_title(f'Step {frame*n_skip+1} — scale_deformations={scale_deformations:g}') # Optional: show actual step number
+        
+        for e in range(nelem):
+            ## Get element id
+            e_id = IX[e, -1]
+
+            ## Get element info
+            element_info = element_type(e_id)
+
+            ## Number of nodes and dofs per node
+            nen  = element_info.nen
+
+            ## Node indices (convert to 0-based)
+            en = IX[e, 1:1+nen].astype(int) - 1
+            
+            x, y = XY[en,0], XY[en,1]
+            up, vp = XD[en,0], XD[en,1]
+            
+            # Ensure we use the current frame's coordinates
+            #up, vp = generate_plotting_order(XD[en,0], XD[en,1], U[en,0], U[en,1])
+            
+            #undeformed_line, = ax.plot(x, y, linestyle='-', marker='x', color='black',
+            #                       markersize=node_size, linewidth=2)
+            
+            # Use sliced stress data
+            vm = vm_all_reduced[frame, e]
+            
+            patches[e].set_xy(np.column_stack([up*scale_to_mm, vp*scale_to_mm]))
+            patches[e].set_facecolor(cmap(norm(vm)))
+            
+        
+        return patches + undeformed_lines
+
+    # Pass the reduced number of frames to the animator
+    ani = animation.FuncAnimation(fig, update, frames=nsteps_reduced, blit=False, repeat=True)
+
+    # Note: Adjust FPS to maintain the same real-time speed if desired
+    ani.save(out_path, writer='pillow', fps=fps)
+
+    #ani.save(out_path, writer='pillow', fps=fps)
+    plt.close(fig)
+    print(f"Saved animation to {out_path}")
