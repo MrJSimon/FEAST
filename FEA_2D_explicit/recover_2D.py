@@ -81,7 +81,7 @@ def recover_ess_2D(material_type, element_type,
     return element_strain, element_stress
     
     
-def recover_explicit_2D(self, Xref, Xcur, IX, gp_state, params, material_type, element_type, ne):
+def recover_explicit_2D(self, Xref, Xcur, IX, gp_state, params, material_type, element_type, ne, rho = 1):
     # Initialiser arrays (vi gemmer nu 4 komponenter pga. sigma_zz i plane strain)
     element_strain = np.zeros((ne, 4))
     element_stress = np.zeros((ne, 4))
@@ -107,13 +107,14 @@ def recover_explicit_2D(self, Xref, Xcur, IX, gp_state, params, material_type, e
         F = dNdx0 @ Xcur_e
         
         # Compute polar decompostion   (F = R * U) 
-        R, U = polar(F,'left')
+        R, U = polar(F,'right')
         
-        # Get stresses and strain from UMAT
-        sig, _, _, eps = material_type(params, gp_state[e],
-                                                     F, R, U,
-                                                     0.0, 0.0, 0.0,
-                                                     0.0, 0.0)
+        # Get stresses and strain from UMAT                                                    
+        sig, eps, _, _, _  = material_type(params, 
+                                             gp_state[e],
+                                             F, R, U,
+                                             0.0, 0.0, 0.0,
+                                             0.0, 0.0, rho) 
         
         # Save stresses and strain in voigt notation --> [xx, yy, xy, zz]
         element_stress[e, :] = [sig[0,0], sig[1,1], sig[0,1], 0.0]

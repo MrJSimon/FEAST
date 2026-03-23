@@ -163,10 +163,9 @@ class isoparametric_shapeQ4:
         jdet = Jmat[0,0]*Jmat[1,1] - Jmat[0,1]*Jmat[1,0]
         # Check determinant
         if jdet <= 0.0:
-           print('Wonky element')
-           return 1.0e-18
+            raise ValueError(f"Wonky element: detJ = {jdet}, J =\n{Jmat}")
         else:
-           return jdet
+            return jdet
     
     @staticmethod
     def jacobian_inverse(Jmat, jdet):

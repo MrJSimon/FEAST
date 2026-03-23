@@ -30,9 +30,104 @@ def u_mat_model(
     
     return sigma, state_vars, energy_density
 
+def u_mat_model_linear_elastic_plane_strain(params, state_vars, F, R, U,
+                               dt, total_time, step_inc,
+                               temp, d_temp, rho=1.0):
+    """
+    Small-strain linear elastic material model (plane strain).
+    """
+
+    # Material parameters
+    E, nu = params[0], params[1]
+
+    # Plane strain stiffness
+    fac = E / ((1.0 + nu) * (1.0 - 2.0 * nu))
+    C = fac * np.array([
+        [1.0 - nu,     nu,          0.0],
+        [nu,           1.0 - nu,    0.0],
+        [0.0,          0.0,         0.5 - nu]
+    ], dtype=float)
+
+    # Small-strain tensor
+    eps_mat = 0.5 * (F + F.T) - np.eye(2)
+
+    # Voigt strain vector: [eps_xx, eps_yy, gamma_xy]
+    eps_voigt = np.array([
+        eps_mat[0, 0],
+        eps_mat[1, 1],
+        2.0 * eps_mat[0, 1]
+    ], dtype=float)
+
+    # Stress in Voigt notation
+    sig_voigt = C @ eps_voigt
+
+    # Energy density
+    energy_density = 0.5 * np.dot(sig_voigt, eps_voigt)
+
+    # Stress tensor
+    sig_mat = np.array([
+        [sig_voigt[0], sig_voigt[2]],
+        [sig_voigt[2], sig_voigt[1]]
+    ], dtype=float)
+
+    # Wave speed estimate
+    mu = E / (2.0 * (1.0 + nu))
+    lam = E * nu / ((1.0 + nu) * (1.0 - 2.0 * nu))
+    c = np.sqrt((lam + 2.0 * mu) / rho)
+
+    return sig_mat, eps_mat, state_vars, energy_density, c
+
+def u_mat_model_linear_elastic_plane_stress(params, state_vars, F, R, U,
+                                            dt, total_time, step_inc,
+                                            temp, d_temp, rho=1.0):
+    """
+    Small-strain linear elastic material model (plane stress).
+    """
+
+    # Material parameters
+    E, nu = params[0], params[1]
+
+    # Plane stress stiffness
+    fac = E / (1.0 - nu**2)
+    C = fac * np.array([
+        [1.0,     nu,          0.0],
+        [nu,      1.0,         0.0],
+        [0.0,     0.0,  (1.0 - nu) / 2.0]
+    ], dtype=float)
+
+    # Small-strain tensor
+    eps_mat = 0.5 * (F + F.T) - np.eye(2)
+
+    # Voigt strain vector: [eps_xx, eps_yy, gamma_xy]
+    eps_voigt = np.array([
+        eps_mat[0, 0],
+        eps_mat[1, 1],
+        2.0 * eps_mat[0, 1]
+    ], dtype=float)
+
+    # Stress in Voigt notation
+    sig_voigt = C @ eps_voigt
+
+    # Energy density
+    energy_density = 0.5 * np.dot(sig_voigt, eps_voigt)
+
+    # Stress tensor
+    sig_mat = np.array([
+        [sig_voigt[0], sig_voigt[2]],
+        [sig_voigt[2], sig_voigt[1]]
+    ], dtype=float)
+
+    # Wave speed (approximate for plane stress)
+    mu = E / (2.0 * (1.0 + nu))
+    lam = E * nu / (1.0 - nu**2)   # modified for plane stress
+    c = np.sqrt((lam + 2.0 * mu) / rho)
+
+    return sig_mat, eps_mat, state_vars, energy_density, c
+
+
 def u_mat_model_linear_elastic(params, state_vars, F, R, U,
-                                    dt, total_time, step_inc,
-                                    temp, d_temp):
+                               dt, total_time, step_inc,
+                               temp, d_temp, rho = 1.0):
 
     """
     Computes the stiffness using hookes generalized law
@@ -79,60 +174,98 @@ def u_mat_model_linear_elastic(params, state_vars, F, R, U,
                         ], 
                         dtype=float)
 
-    return sig_mat, state_vars, energy_density, eps_mat
+    # Effective moduli for timestep estimate
+    mu = E / (2.0 * (1.0 + nu))
+    lam = E * nu / ((1.0 + nu) * (1.0 - 2.0 * nu))
+    c = np.sqrt((lam + 2.0 * mu) / rho)
 
+    return sig_mat, eps_mat, state_vars, energy_density, c
 
 def u_mat_model_neohookean(params, state_vars, F, R, U,
-                                    dt, total_time, step_inc,
-                                    temp, d_temp):
+                           dt, total_time, step_inc,
+                           temp, d_temp, rho = 1.0):
 
-    """
-    
-    """
-    
-    # Define material parameters
+    # Material parameters
     C1, D1 = params[0], params[1]
-    
-    # Get the determinant of the deformation gradient
-    J = np.linalg.det(F) # Corrected function call
-    
-    # Compute the isochoric deformation gradient
-    # Note: J**(-2/3) is for 3D. Use J**(-1) for 2D Plane Strain.
-    Fbar = J**(-2/3) * F    
-  
-    # Compute modified right cauchy strain (Left Cauchy-Green) matrix
+
+    J = np.linalg.det(F)
+
+    # Current prototype form
+    Fbar = J**(-2/3) * F
     Bbar = Fbar @ Fbar.T
-  
-    # Compute modified invariants
     I1bar = np.trace(Bbar)
-  
-    # Compute derivatives
+
     dWdI1_bar = C1
-    # Note: dWdJ = dU/dJ (the volumetric part)
     dWdJ_bar  = (2.0 / D1) * (J - 1.0)
-    
-    # Compute Cauchy stress coefficients 
-    # AA represents the scaling of the isochoric Bbar
+
     AA = (2.0 / J) * dWdI1_bar
-    # BB is 0 for Neo-Hookean (only used in Mooney-Rivlin for I2bar)
-    BB = 0.0  
-    # CC is the hydrostatic shift from the deviatoric part: (1/3)*tr(sigma_iso)
     CC = (1.0 / 3.0) * (I1bar * AA)
-    
-    # Compute Cauchy stress
-    # sig = [AA * Bbar - CC * I] + [dWdJ_bar * I]
-    # We combine the hydrostatic terms: (dWdJ_bar - CC)
+
     sig_mat = AA * Bbar + (dWdJ_bar - CC) * np.eye(2)
-    
-    # Compute energy density (Hyperelastic potential)
+
     energy_density = C1 * (I1bar - 3.0) + (1.0 / D1) * (J - 1.0)**2
-    
-    # Large strain measure (Hencky/Logarithmic strain is standard for UMAT)
-    # Using your linear approx for now, but usually reported as: 
-    # eps_mat = 0.5 * log(C)
+
     eps_mat = 0.5 * (F + F.T - 2.0 * np.eye(2))
+
+    # Effective moduli for timestep estimate
+    mu = 2.0 * C1
+    K  = 2.0 / D1
+    c  = np.sqrt((K + 4.0 * mu / 3.0) / rho)
+
+    return sig_mat, eps_mat, state_vars, energy_density, c
+
+
+# def u_mat_model_neohookean(params, state_vars, F, R, U,
+                                    # dt, total_time, step_inc,
+                                    # temp, d_temp):
+
+    # """
     
-    return sig_mat, state_vars, energy_density, eps_mat
+    # """
+    
+    # # Define material parameters
+    # C1, D1 = params[0], params[1]
+    
+    # # Get the determinant of the deformation gradient
+    # J = np.linalg.det(F) # Corrected function call
+    
+    # # Compute the isochoric deformation gradient
+    # # Note: J**(-2/3) is for 3D. Use J**(-1) for 2D Plane Strain.
+    # Fbar = J**(-2/3) * F    
+  
+    # # Compute modified right cauchy strain (Left Cauchy-Green) matrix
+    # Bbar = Fbar @ Fbar.T
+  
+    # # Compute modified invariants
+    # I1bar = np.trace(Bbar)
+  
+    # # Compute derivatives
+    # dWdI1_bar = C1
+    # # Note: dWdJ = dU/dJ (the volumetric part)
+    # dWdJ_bar  = (2.0 / D1) * (J - 1.0)
+    
+    # # Compute Cauchy stress coefficients 
+    # # AA represents the scaling of the isochoric Bbar
+    # AA = (2.0 / J) * dWdI1_bar
+    # # BB is 0 for Neo-Hookean (only used in Mooney-Rivlin for I2bar)
+    # BB = 0.0  
+    # # CC is the hydrostatic shift from the deviatoric part: (1/3)*tr(sigma_iso)
+    # CC = (1.0 / 3.0) * (I1bar * AA)
+    
+    # # Compute Cauchy stress
+    # # sig = [AA * Bbar - CC * I] + [dWdJ_bar * I]
+    # # We combine the hydrostatic terms: (dWdJ_bar - CC)
+    # sig_mat = AA * Bbar + (dWdJ_bar - CC) * np.eye(2)
+    
+    # # Compute energy density (Hyperelastic potential)
+    # energy_density = C1 * (I1bar - 3.0) + (1.0 / D1) * (J - 1.0)**2
+    
+    # # Large strain measure (Hencky/Logarithmic strain is standard for UMAT)
+    # # Using your linear approx for now, but usually reported as: 
+    # # eps_mat = 0.5 * log(C)
+    # eps_mat = 0.5 * (F + F.T - 2.0 * np.eye(2))
+    
+    # return sig_mat, state_vars, energy_density, eps_mat
 
 
 def linear_elastic_planestrain(E: float, nu : float):
