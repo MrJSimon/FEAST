@@ -37,19 +37,102 @@ def enforce(bounds, P, K):
     return P, K
 
 
-def enforce_bc_vector(bounds, vec):
+def add_fixed_bc(bounds, vec, ndof = 2):
     """
     Dirichlet boundary conditions
     
     For every dof in bounds
       - set the vector to 0
     """
+    
+    if bounds is None or len(bounds) == 0:
+        return vec
+    
+    for node_id, direction, _ in bounds:
+        # Set node id, subtract one for python syntax index from zero 
+        node_id = int(node_id) - 1
+        # Set the target node
+        dof = ndof * node_id + (int(direction) - 1)
+        # Enforce the bounds
+        vec[dof] = 0.0       
+    return vec
+   
+def add_displacement_bc(bounds, vec, ndof = 2):
+    """
+    Dirichlet boundary conditions
+    
+    For every dof in bounds
+      - set the vector to 0
+    """
+    
+    if bounds is None or len(bounds) == 0:
+        return vec
+    
     for node_id, direction, value in bounds:
         # Set node id, subtract one for python syntax index from zero 
         node_id = int(node_id) - 1
         # Set the target node
-        dof = 2 * node_id + (int(direction) - 1)
+        dof = ndof * node_id + (int(direction) - 1)
         # Enforce the bounds
-        #print(dof)
-        vec[dof] = 0.0       
+        vec[dof] = float(value)       
+    return vec
+   
+def add_velocity_bc(bounds, vec, ndof = 2):
+    """
+    Dirichlet boundary conditions
+    
+    For every dof in bounds
+      - set the vector to 0
+    """
+    
+    if bounds is None or len(bounds) == 0:
+        return vec
+    
+    for node_id, direction, value in bounds:
+        # Set node id, subtract one for python syntax index from zero 
+        node_id = int(node_id) - 1
+        # Set the target node
+        dof = ndof * node_id + (int(direction) - 1)
+        # Enforce the bounds
+        vec[dof] = float(value)       
+    return vec 
+    
+def add_acceleration_bc(bounds, vec, ndof = 2):
+    """
+    Dirichlet boundary conditions
+    
+    For every dof in bounds
+      - set the vector to 0
+    """
+    
+    if bounds is None or len(bounds) == 0:
+        return vec
+    
+    for node_id, direction, value in bounds:
+        # Set node id, subtract one for python syntax index from zero 
+        node_id = int(node_id) - 1
+        # Set the target node
+        dof = ndof * node_id + (int(direction) - 1)
+        # Enforce the bounds
+        vec[dof] = float(value)       
+    return vec 
+    
+def add_force_bc(bounds, vec, ndof = 2):
+    """
+    Dirichlet boundary conditions
+    
+    For every dof in bounds
+      - set the vector to 0
+    """
+    
+    if bounds is None or len(bounds) == 0:
+        return vec
+    
+    for node_id, direction, value in bounds:
+        # Set node id, subtract one for python syntax index from zero 
+        node_id = int(node_id) - 1
+        # Set the target node
+        dof = ndof * node_id + (int(direction) - 1)
+        # Enforce the bounds
+        vec[dof] = float(value)       
     return vec

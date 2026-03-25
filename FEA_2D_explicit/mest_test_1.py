@@ -96,7 +96,7 @@ def mesh2(Fy = -1.0):
     
     return X, IX, bounds, loads
     
-def mesh3(Fy = -1.0, Vy = 1.0 ):
+def mesh3(Dy = None, Vy = None, Ay = None, Fy = None):     
      
     ## Nodal coordinates: 'N', node_id, x-coord, y-coord, z-coord
     n1  = [1,   0,	     0,	     0]
@@ -109,21 +109,43 @@ def mesh3(Fy = -1.0, Vy = 1.0 ):
 
     ## Nodal displacements/boundary conditions: 
     ## node_id, directition--> UX = 1, UY = 2, UZ = 3, value
-    D1 = [1, 1,	0]
-    D2 = [1, 2,	0]
-    D3 = [3, 2,	0]
-    D4 = [2, 1,	0]
+    K1 = [1, 1,	0]
+    K2 = [1, 2,	0]
+    K3 = [3, 2,	0]
+    K4 = [2, 1,	0]
     
+    fixed_bounds = np.array([K1,K2,K3,K4])
+        
     ## Nodal load: 'F', node_id, 'FX / FY', value
     ## node_id, directition--> FX = 1, FY = 2, FZ = 3, value
-    F1 = [2,2,Fy]
-    F2 = [4,2,Fy]
+   
+    if Dy is None:
+        displacement_bounds = None
+    else:
+        D1 = [2,2,Dy]
+        D2 = [4,2,Dy]
+        displacement_bounds = np.array([D1,D2])
+        
+    if Vy is None:
+        velocity_bounds = None
+    else:
+        V1 = [2,2,Vy]
+        V2 = [4,2,Vy]
+        velocity_bounds = np.array([V1,V2]) 
+        
+    if Ay is None:
+        acceleration_bounds = None
+    else:
+        A1 = [2,2,Ay]
+        A2 = [4,2,Ay]
+        acceleration_bounds = np.array([A1,A2])
     
-    ## Nodal velocities: 'V', node_id, 'VX / VY', value
-    ## node_id, directition--> VX = 1, VY = 2, VZ = 3, value
-    V1 = [2,2,Vy]
-    V2 = [4,2,Vy]
-    
+    if Fy is None:
+         force_bounds = None
+    else:
+        F1 = [2,2,Fy]
+        F2 = [4,2,Fy]
+        force_bounds = np.array([F1,F2])
 
     ## Create coordinate matrix
     X = np.array([n1,n2,n3,n4])
@@ -136,16 +158,7 @@ def mesh3(Fy = -1.0, Vy = 1.0 ):
     IX[:,:-1] = np.array(IX_list, dtype=int)
     IX[:,-1] = 'IPQ4'
     
-    ## Create displacement matrix
-    bounds = np.array([D1,D2,D3,D4])
-    
-    ## Create force matrix
-    loads = np.array([F1,F2])
-    
-    ## Create velocity matrix
-    velocities = np.array([V1, V2])
-    
-    return X, IX, bounds, loads, velocities
+    return X, IX, fixed_bounds, displacement_bounds, velocity_bounds, acceleration_bounds, force_bounds
 
 
 def beam_strip_mesh_q4(nx=16, ny=1, L=0.5, H=0.01, Fy=-1.0):

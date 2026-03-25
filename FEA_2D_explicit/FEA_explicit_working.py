@@ -73,10 +73,11 @@ from initialize_timestep import critical_timestep
 from elements_2D_update import element_type_2D as u_elem
 # Import material library
 from material_types_2D import u_mat_model_linear_elastic_plane_stress as u_mat
+from material_types_2D import u_mat_model_neohookean_plane_strain as u_mat
 # Load in module to conduct fea analysis
 from FEA_explicit_analysis_2D_UL_working import FEA_explicit
 # Load in ramping modulue
-from rampingFunctions import logistic_ramp as u_ramp
+from rampingFunctions import ramp_quintic as u_ramp
 
 def sigma_uniaxial(eps, E):
     return E * eps
@@ -85,22 +86,50 @@ def sigma_plane_strain(eps, E, nu):
     Eeff = E * (1.0 - nu) / ((1.0 + nu) * (1.0 - 2.0 * nu))
     return Eeff * eps
 
+def sigma_plane_strain_neohookean_nominal(eps, C1, D1):
+    lam = 1.0 + np.asarray(eps)
+    return (4.0 * C1 / 3.0) * (lam**(-2.0/3.0) - lam**(-8.0/3.0)) \
+           + (2.0 / D1) * ((lam - 1.0) / lam)
 
-## ------ Values for a linear analysis -------- ##
-## Set thickness, density poission ration
+def sigma_uniaxial_neohookean_incompressible(eps, C1, D1):
+    lam = 1.0 + eps
+    lam_1 = 1.0/np.sqrt(lam)
+    lam_3 = 1.0/np.sqrt(lam)
+    sigma_eng = 2.0 * C1 * (lam - 1.0/(lam**2))
+    return sigma_eng
+    
+#def sigma_uniaxial_neohookean_compressible(eps,
+    
+## ---------------- MATERIAL DEPENDENT MODEL PARAMETERS -----------------# 
+
+# Values for a linear analysis
 thk, rho, E, nu = 1.0, 7850, 210000000, 0.3
 
+# Set parameters to be used in the analysis
+params = [E,nu]
+
+# Values for Hyperelastic NeoHookean
+thk = 1.0        # m
+C1  = 0.5e6      # Pa   (=> mu = 1.0 MPa)
+D1  = 2.0e-9     # 1/Pa (=> K  = 1.0 GPa)
+rho = 1100       # kg/m^3
+
+## Set parameters to be used in the analysis
+params = [C1,D1]
+
+## ---------------- Glocal parameters -----------------#
+
 ## Set node and node-ordering matrix
-X, IX, bounds, loads, velocities = mesh3(Fy = 0.0, Vy = 1)
+X, IX, _, _, _, _, _ = mesh3(Dy = None, Vy = 1, Ay = None, Fy = None)
 
 # Set maximum length across gauge-section in the normal to the pulling direction
 L0 = np.max(X[:,2]) - np.min(X[:,2])   # loading direction
 
 ## Get maximum strain
-eps_max = 1.0/100
+eps_max = 20.0/100
 
 # Set total simulation time, the total equivalent to the experiment and critical time-step dt
-total_time, dt = 0.1, 0.001
+total_time, dt = 500.0, 0.001
 
 ## Get equivalent displacement across the gauge section eps_n = delta_L/L0 <--> delta_L = eps_n * L0
 disp = eps_max * L0
@@ -109,21 +138,23 @@ disp = eps_max * L0
 Vy = disp/total_time
 
 ## Set node and node-ordering matrix
-X, IX, bounds, loads, velocities = mesh3(Fy = 0.0, Vy = Vy)
+X, IX, fixed_bounds, displacement_bounds, velocity_bounds, acceleration_bounds, force_bounds = mesh3(Dy = None, Vy = Vy, Ay = None, Fy = None )
 
 ## Set number of gauss points
 ng = 2
 
-## Set parameters to be used in the analysis
-params = [E,nu]
-
 ## Compute finite element solution
 FEA_solution = FEA_explicit(params,
                               X, IX,
-                              bounds, loads, velocities,
+                              fixed_bounds,
+                              displacement_bounds,
+                              velocity_bounds,
+                              acceleration_bounds,
+                              force_bounds,
+                              #bounds, loads, velocities,
                               u_mat, u_elem, u_ramp,
                               thk = thk, rho = rho, ng = ng, 
-                              alpha = 0.8, dt = dt, total_time = total_time)
+                              alpha = 0.7, dt = dt, total_time = total_time)
 
 ## Get history dependent values
 u_hist, f_hist = FEA_solution.u_history, FEA_solution.f_history
@@ -131,6 +162,9 @@ u_hist, f_hist = FEA_solution.u_history, FEA_solution.f_history
 ## Compute total force across the top nodes
 f_total = f_hist[:,3] + f_hist[:,7]
 u_top = 0.5 * (u_hist[:,3] + u_hist[:,7])
+
+print(u_top.shape)
+print(u_hist.shape)
 
 # Reference dimensions
 L0 = np.max(X[:,2]) - np.min(X[:,2])   # loading direction
@@ -140,16 +174,13 @@ W0 = np.max(X[:,1]) - np.min(X[:,1])   # loaded edge length
 sig_fea_n = f_total / (W0 * thk)
 eps_fea_n = u_top / L0
 
-E_fea = np.mean(np.gradient(sig_fea_n,eps_fea_n))
-Eeff = E_fea * (1.0 - nu) / ((1.0 + nu) * (1.0 - 2.0 * nu))
-print(E_fea,Eeff)
+sig_uni = sigma_uniaxial_neohookean_incompressible(eps_fea_n, C1,D1)
 
-sig_uni = sigma_uniaxial(eps_fea_n, E)
-sig_ps  = sigma_plane_strain(eps_fea_n, E, nu)
+start, end = 0, -1
 
 plt.figure()
-plt.plot(100*eps_fea_n, sig_uni, label='Analytical uniaxial',color='blue',linewidth=2)
-plt.plot(100*eps_fea_n, sig_fea_n, label='FEA',color='red',linestyle='none',marker='o',alpha=0.8)
+plt.plot(100*eps_fea_n[start:end], sig_uni[start:end], label='Analytical uniaxial',color='blue',linewidth=2)
+plt.plot(100*eps_fea_n[start:end], sig_fea_n[start:end], label='FEA',color='red',linestyle='none',marker='o',alpha=0.8)
 plt.grid('on')
 plt.xlabel('nominal strain [%] ')
 plt.ylabel('nominal stress [Pa]')

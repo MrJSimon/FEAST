@@ -59,7 +59,7 @@ def logistic_ramp(yval = float,
         Amp =  1.0 / (1.0 + (nom/deo)**slope)
             
     else:
-        Amp = 10e-19
+        Amp = 0.0
         
     # Apply aplitude/ramp to yval
     return yval * Amp
@@ -75,3 +75,31 @@ def logistic_ramp(yval = float,
 
 #print(velocities)
 #print(current_v_target)
+
+
+def ramp_quintic(t, ramp_time):
+    """
+    C2 smooth ramp from 0 to 1 over time ramp_time.
+
+    Returns
+    -------
+    r    : ramp value
+    dr   : first time derivative
+    d2r  : second time derivative
+    """
+    if ramp_time <= 0.0:
+        return 1.0, 0.0, 0.0
+
+    if t <= 0.0:
+        return 0.0, 0.0, 0.0
+
+    if t >= ramp_time:
+        return 1.0, 0.0, 0.0
+
+    xi = t / ramp_time
+
+    r = 10.0*xi**3 - 15.0*xi**4 + 6.0*xi**5
+    dr = (30.0*xi**2 - 60.0*xi**3 + 30.0*xi**4) / ramp_time
+    d2r = (60.0*xi - 180.0*xi**2 + 120.0*xi**3) / (ramp_time**2)
+
+    return r, dr, d2r
